@@ -24,6 +24,7 @@
 
 package de.appplant.cordova.plugin.localnotification;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.KeyguardManager;
@@ -35,6 +36,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
@@ -51,6 +53,7 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
+import org.apache.cordova.PermissionHelper;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -100,7 +103,17 @@ public class LocalNotification extends CordovaPlugin {
 
     private static int REQUEST_IGNORE_BATTERY_CALL = 20;
 
+    public static final int POST_NOTIFICATIONS_REQ_CODE = 30;
+
     private CallbackContext callbackContext;
+    private JSONArray arguments;
+
+    public static final String POST_NOTIFICATIONS = Manifest.permission.POST_NOTIFICATIONS;
+
+    protected void getPostNotifications(int requestCode) {
+        PermissionHelper.requestPermissions(this, requestCode, new String[] {
+                POST_NOTIFICATIONS});
+    }
 
     /**
      * Called after plugin construction and fields have been initialized. Prefer to
@@ -148,7 +161,8 @@ public class LocalNotification extends CordovaPlugin {
     @Override
     public boolean execute(final String action, final JSONArray args, final CallbackContext command)
             throws JSONException {
-
+        this.arguments = args;
+        this.callbackContext = command;
         if (action.equals("launch")) {
             launch(command);
             return true;
@@ -165,7 +179,13 @@ public class LocalNotification extends CordovaPlugin {
                 } else if (action.equals("actions")) {
                     actions(args, command);
                 } else if (action.equals("schedule")) {
-                    schedule(args, command);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        if (PermissionHelper.hasPermission(LocalNotification.this, POST_NOTIFICATIONS)) {
+                            schedule(args, command);
+                        } else {
+                            getPostNotifications(POST_NOTIFICATIONS_REQ_CODE);
+                        }
+                    }
                 } else if (action.equals("update")) {
                     update(args, command);
                 } else if (action.equals("cancel")) {
@@ -199,6 +219,14 @@ public class LocalNotification extends CordovaPlugin {
         });
 
         return true;
+    }
+
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults)
+            throws JSONException {
+
+        if (requestCode == POST_NOTIFICATIONS_REQ_CODE) {
+            schedule(arguments, callbackContext);
+        }
     }
 
     /**
