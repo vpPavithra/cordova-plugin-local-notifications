@@ -185,6 +185,8 @@ public class LocalNotification extends CordovaPlugin {
                         } else {
                             getPostNotifications(POST_NOTIFICATIONS_REQ_CODE);
                         }
+                    } else {
+                        schedule(args, command);
                     }
                 } else if (action.equals("update")) {
                     update(args, command);
